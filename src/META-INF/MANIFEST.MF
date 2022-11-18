@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Class-Path: lombok.jar gson-2.10.jar
+Main-Class: example.Main
+
