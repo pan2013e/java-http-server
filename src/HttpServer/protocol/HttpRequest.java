@@ -1,5 +1,8 @@
 package HttpServer.protocol;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -8,8 +11,13 @@ import java.util.Map;
 
 public class HttpRequest {
 
+    @Getter(AccessLevel.PUBLIC)
     private HttpMethod method;
-    private String resource;
+
+    @Getter(AccessLevel.PUBLIC)
+    private String resourceURI;
+
+    @Getter(AccessLevel.PUBLIC)
     private HttpVersion version;
 
     private final Map<String, String> header = new HashMap<>();
@@ -22,10 +30,7 @@ public class HttpRequest {
         String[] arr = firstLine.split(" ");
         assert arr.length == 3;
         method = HttpMethod.valueOf(arr[0].toUpperCase());
-        resource = parseURI(arr[1]);
-//        for(var key : queries.keySet()) {
-//            System.out.printf("%s %s\n", key, queries.get(key));
-//        }
+        resourceURI = parseURI(arr[1]);
         version = HttpVersion.HTTP_1_1;
         for(int i = 1;i < lines.size();i++) {
             String[] _header = lines.get(i).split(":", 2);
@@ -49,14 +54,6 @@ public class HttpRequest {
             }
         }
         return components[0];
-    }
-
-    public String getResourceURI() {
-        return resource;
-    }
-
-    public HttpMethod getMethod() {
-        return method;
     }
 
     public String getQuery(String key) {

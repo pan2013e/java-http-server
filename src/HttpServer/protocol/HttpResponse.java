@@ -1,15 +1,19 @@
 package HttpServer.protocol;
 
 import HttpServer.Utils;
+import HttpServer.annotation.JSONSerializable;
+import HttpServer.mvc.ModelAndView;
+import HttpServer.mvc.TemplateFactory;
+import HttpServer.servlet.ControllerFactory;
 import HttpServer.servlet.DispatcherServlet;
 import com.google.gson.Gson;
+import freemarker.template.Template;
 
+import java.io.BufferedWriter;
+import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,8 +32,8 @@ public class HttpResponse {
     public HttpResponse(HttpRequest httpRequest) {
         this.httpRequest = httpRequest;
         setResponse(HttpResponseType.OK);
-        setHeader("Server", "JavaHttpServer");
-        setHeader("Date", getServerTime());
+        setHeader("Server", Utils.SERVER_NAME);
+        setHeader("Date", Utils.getServerTime());
         setHeader("Content-Type", "text/html; charset=UTF-8");
         setHeader("Connection", "close");
     }
@@ -73,9 +77,30 @@ public class HttpResponse {
                 throw new UnsupportedOperationException("Unsupported type");
             }
         }
-        Object ret = m.invoke(null, args.toArray());
-        if(ret instanceof String || !getHeader("Content-Type").startsWith("text/html")) {
+        Object ret;
+        if(Modifier.isStatic(m.getModifiers())) {
+            ret = m.invoke(null, args.toArray());
+        } else {
+            ret = m.invoke(ControllerFactory.getInstance().getController(m.getDeclaringClass()), args.toArray());
+        }
+        if(ret instanceof ModelAndView _ret) {
+            try {
+                Template template = TemplateFactory.getInstance().getTemplate(_ret.getViewName());
+                StringWriter sw = new StringWriter();
+                BufferedWriter bw = new BufferedWriter(sw);
+                Method getMap = ModelAndView.class.getDeclaredMethod("getMap");
+                getMap.setAccessible(true);
+                template.process(getMap.invoke(_ret), bw);
+                setBody(sw);
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new UnsupportedOperationException(e.getMessage());
+            }
+        } else if(ret instanceof String) {
             setBody(ret);
+        } else if(ret.getClass().isAnnotationPresent(JSONSerializable.class)) {
+            setBody(ret);
+            setContentType("text/json; charset=UTF-8");
         } else {
             Gson gson = new Gson();
             setContentType("text/json; charset=UTF-8");
@@ -86,6 +111,7 @@ public class HttpResponse {
     public void processRequest() {
         try {
             Method m = DispatcherServlet.get(httpRequest.getResourceURI(), httpRequest.getMethod());
+            m.setAccessible(true);
             doInvoke(m);
         } catch (InvocationTargetException | IllegalAccessException e) {
             e.printStackTrace();
@@ -121,13 +147,6 @@ public class HttpResponse {
                 statusCode, status, statusCode, status));
         }
         return sb.toString();
-    }
-
-    // RFC 1123 (HTTP/1.1)
-    private String getServerTime() {
-        return DateTimeFormatter.RFC_1123_DATE_TIME.format(
-                ZonedDateTime.now(ZoneOffset.UTC)
-        );
     }
 
 }

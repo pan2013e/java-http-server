@@ -1,5 +1,6 @@
 package HttpServer.configuration;
 
+import HttpServer.Utils;
 import HttpServer.annotation.GetMapping;
 import HttpServer.annotation.RequestMapping;
 import HttpServer.protocol.HttpMethod;
@@ -39,7 +40,7 @@ public class MappingScanner {
                     try {
                         Method getValue = annotClass.getDeclaredMethod("value");
                         Method getHttpMethod = annotClass.getDeclaredMethod("method");
-                        DispatcherServlet.add(uriConcat(baseUri, (String) getValue.invoke(annot)),
+                        DispatcherServlet.add(Utils.uriConcat(baseUri, (String) getValue.invoke(annot)),
                                 (HttpMethod) getHttpMethod.invoke(annot), method);
                     } catch (NoSuchMethodException | IllegalAccessException
                             | InvocationTargetException e) {
@@ -47,18 +48,6 @@ public class MappingScanner {
                         System.exit(1);
                     }
                 });
-    }
-
-    private String uriConcat(String base, String more) {
-        assert base.startsWith("/");
-        if(base.endsWith("/") && more.startsWith("/")) {
-            return base + more.substring(1);
-        } else if( (!base.endsWith("/") && more.startsWith("/")) ||
-                (base.endsWith("/") && !more.startsWith("/"))) {
-            return base + more;
-        } else {
-            return base + "/" + more;
-        }
     }
 
 }

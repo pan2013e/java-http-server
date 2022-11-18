@@ -46,6 +46,10 @@ public class PackageScanner {
         return classes.stream().filter(cls -> cls.isAnnotationPresent(scannedAnnot)).toList();
     }
 
+    public String getPackageName() {
+        return packageName;
+    }
+
     private void scan() throws IOException {
         String basePath = packageName.replace(".", File.separator);
         List<String> absPaths = new ArrayList<>();
@@ -61,7 +65,11 @@ public class PackageScanner {
         scanDir(absPaths);
         try {
             for(String className: classNames) {
-                classes.add(Class.forName(packageName + "." + className));
+                if(packageName.equals("")) {
+                    classes.add(Class.forName(className));
+                } else {
+                    classes.add(Class.forName(packageName + "." + className));
+                }
             }
         } catch (ClassNotFoundException e) {
             scannerLogger.warning(e.getMessage());

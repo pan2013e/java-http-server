@@ -37,8 +37,6 @@ public class DispatcherServlet {
         }
     }
 
-    private static String resourceDir;
-
     /* map: <URI, httpMethod> -> Java method */
     private static final Map<URITuple, Method> map = new ConcurrentHashMap<>();
 
@@ -49,15 +47,5 @@ public class DispatcherServlet {
     public static Method get(String uri, HttpMethod httpMethod) {
         return map.getOrDefault(new URITuple(uri, httpMethod), null);
     }
-
-    public static void setResourceDir(String dir) {
-        resourceDir = dir;
-    }
-
-    public static String getResourceDir(String dir) {
-        return resourceDir;
-    }
-
-
 
 }
