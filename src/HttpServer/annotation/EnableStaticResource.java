@@ -9,5 +9,9 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface EnableStaticResource {
     String value() default "/";
-    String[] allow() default { "*.html", "*.js", "*.css", "*.jpg", "*.png" };
+    String[] allow() default {
+        "*.htm", "*.html", "*.js", "*.css", "*.jpg",
+        "*.png", "*.jpeg", "*.ico", "*.svg", "*.gif",
+        "*.pdf", "*.txt"
+    };
 }

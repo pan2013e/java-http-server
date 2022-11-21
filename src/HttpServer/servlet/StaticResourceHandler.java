@@ -7,12 +7,12 @@ import HttpServer.protocol.HttpResponse;
 import HttpServer.protocol.HttpResponseType;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.tika.Tika;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class StaticResourceHandler {
@@ -48,7 +48,7 @@ public class StaticResourceHandler {
         File f = new File(p.toAbsolutePath().toString());
         if(f.isFile()) {
             try {
-                String mimeType = Files.probeContentType(p);
+                String mimeType = new Tika().detect(f);
                 FileInputStream fis = new FileInputStream(f);
                 byte[] bytes = fis.readAllBytes();
                 fis.close();

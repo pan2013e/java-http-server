@@ -12,5 +12,6 @@
     <orderEntry type="library" name="lombok" level="project" />
     <orderEntry type="library" name="freemarker" level="project" />
     <orderEntry type="library" name="jwildcard-1.4" level="project" />
+    <orderEntry type="library" name="tika-app-2.6.0" level="project" />
   </component>
 </module>
