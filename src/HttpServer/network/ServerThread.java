@@ -3,14 +3,9 @@ package HttpServer.network;
 import HttpServer.protocol.HttpRequest;
 import HttpServer.protocol.HttpResponse;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -19,7 +14,7 @@ public class ServerThread implements Runnable {
 
     private final Socket socket;
     private final BufferedReader reader;
-    private final PrintWriter writer;
+    private final BufferedOutputStream writer;
 
     private final HttpRequest httpRequest = new HttpRequest();
     private HttpResponse httpResponse;
@@ -30,7 +25,7 @@ public class ServerThread implements Runnable {
         threadLogger.setLevel(Level.INFO);
         this.socket = socket;
         reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        writer = new PrintWriter(socket.getOutputStream(), true);
+        writer = new BufferedOutputStream(socket.getOutputStream());
     }
 
     private String readline() throws IOException {
@@ -51,17 +46,16 @@ public class ServerThread implements Runnable {
         return sb.toString();
     }
 
-    private void runImpl() throws IOException {
+    private void runImpl() {
         List<String> lines = new ArrayList<>();
         while(true) {
             try {
                 String line = readline();
                 if(line == null || line.equals("\r\n")) {
                     httpRequest.parseLine(lines);
-                    httpResponse = new HttpResponse(httpRequest);
+                    httpResponse = new HttpResponse(httpRequest, writer);
                     httpResponse.processRequest();
-                    writer.write(httpResponse.toString());
-                    writer.flush();
+                    httpResponse.send();
                     break;
                 }
                 if(line.length() > 2 && line.endsWith("\r\n")) {

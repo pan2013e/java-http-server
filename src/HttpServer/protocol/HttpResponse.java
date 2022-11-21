@@ -9,11 +9,14 @@ import HttpServer.servlet.DispatcherServlet;
 import com.google.gson.Gson;
 import freemarker.template.Template;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,15 +25,17 @@ import java.util.Map;
 public class HttpResponse {
 
     private final HttpRequest httpRequest;
+    private final BufferedOutputStream writer;
 
     private HttpResponseType responseType;
 
-    private String responseBody = "";
+    private Object responseBody = "";
 
     private final Map<String, String> responseHeader = new LinkedHashMap<>();
 
-    public HttpResponse(HttpRequest httpRequest) {
+    public HttpResponse(HttpRequest httpRequest, BufferedOutputStream writer) {
         this.httpRequest = httpRequest;
+        this.writer = writer;
         setResponse(HttpResponseType.OK);
         setHeader("Server", Utils.SERVER_NAME);
         setHeader("Date", Utils.getServerTime());
@@ -43,7 +48,7 @@ public class HttpResponse {
     }
 
     private void setBody(Object responseBody) {
-        this.responseBody = responseBody.toString();
+        this.responseBody = responseBody;
     }
 
     public void setHeader(String key, String value) {
@@ -56,6 +61,10 @@ public class HttpResponse {
 
     public void setContentType(String value) {
         setHeader("Content-Type", value);
+    }
+
+    public void setContentLength(int value) {
+        setHeader("Content-Length", String.valueOf(value));
     }
 
     private void doInvoke(Method m) throws InvocationTargetException,
@@ -83,6 +92,9 @@ public class HttpResponse {
         } else {
             ret = m.invoke(ControllerFactory.getInstance().getController(m.getDeclaringClass()), args.toArray());
         }
+        if(ret == null) {
+            return;
+        }
         if(ret instanceof ModelAndView _ret) {
             try {
                 Template template = TemplateFactory.getInstance().getTemplate(_ret.getViewName());
@@ -96,7 +108,7 @@ public class HttpResponse {
                 e.printStackTrace();
                 throw new UnsupportedOperationException(e.getMessage());
             }
-        } else if(ret instanceof String) {
+        } else if(ret instanceof String || ret instanceof byte[]) {
             setBody(ret);
         } else if(ret.getClass().isAnnotationPresent(JSONSerializable.class)) {
             setBody(ret);
@@ -111,31 +123,35 @@ public class HttpResponse {
     public void processRequest() {
         try {
             Method m = DispatcherServlet.get(httpRequest.getResourceURI(), httpRequest.getMethod());
+            if(m == null) {
+                throw new NullPointerException();
+            }
             m.setAccessible(true);
             doInvoke(m);
         } catch (InvocationTargetException | IllegalAccessException e) {
             e.printStackTrace();
-        } catch (UnsupportedOperationException e) {
+        } catch (UnsupportedOperationException | NullPointerException e) {
             setResponse(HttpResponseType.NOT_FOUND);
         }
 
     }
 
-    @Override
-    public String toString() {
-        assert responseType != null;
-        StringBuilder sb = new StringBuilder();
+    public void send() throws IOException {
         int statusCode = responseType.getCode();
         String status = responseType.toString();
-        sb.append(String.format("HTTP/1.1 %d %s\r\n", statusCode, status));
+        writer.write(String.format("HTTP/1.1 %d %s\r\n", statusCode, status).getBytes(StandardCharsets.UTF_8));
         for(var key : responseHeader.keySet()) {
-            sb.append(String.format("%s: %s\r\n", key, responseHeader.get(key)));
+            writer.write(String.format("%s: %s\r\n", key, responseHeader.get(key)).getBytes(StandardCharsets.UTF_8));
         }
-        sb.append("\r\n");
-        if(responseType.equals(HttpResponseType.OK) || !responseBody.equals("")) {
-            sb.append(responseBody);
+        writer.write("\r\n".getBytes(StandardCharsets.UTF_8));
+        if(responseType.equals(HttpResponseType.OK) || !responseBody.toString().equals("")) {
+            if(responseBody instanceof byte[] _bytes) {
+                writer.write(_bytes);
+            } else {
+                writer.write(responseBody.toString().getBytes(StandardCharsets.UTF_8));
+            }
         } else {
-            sb.append(String.format("""
+            writer.write(String.format("""
                 <html>
                 <head><title>%d %s</title></head>
                 <body>
@@ -144,9 +160,9 @@ public class HttpResponse {
                 </body>
                 </html>
                 """,
-                statusCode, status, statusCode, status));
+                    statusCode, status, statusCode, status).getBytes(StandardCharsets.UTF_8));
         }
-        return sb.toString();
+        writer.flush();
     }
 
 }

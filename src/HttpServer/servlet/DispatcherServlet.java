@@ -1,16 +1,22 @@
 package HttpServer.servlet;
 
 import HttpServer.protocol.HttpMethod;
+import com.yevdo.jwildcard.JWildcard;
+import lombok.Getter;
 
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 public class DispatcherServlet {
 
+    @Getter
     private static class URITuple {
-        public String URI;
-        public HttpMethod method;
+        private final String URI;
+        private final HttpMethod method;
 
         public URITuple(String URI, HttpMethod method) {
             assert URI != null && method != null;
@@ -37,15 +43,30 @@ public class DispatcherServlet {
         }
     }
 
-    /* map: <URI, httpMethod> -> Java method */
-    private static final Map<URITuple, Method> map = new ConcurrentHashMap<>();
+    /* map: URITuple.hashCode() -> Java method */
+    private static final Map<Integer, Method> map = new ConcurrentHashMap<>();
 
-    public static void add(String uri, HttpMethod httpMethod, Method method) {
-        map.put(new URITuple(uri, httpMethod), method);
+    /* set: rules<URI regex string, HttpMethod>*/
+    private static final Set<URITuple> ruleSet = new CopyOnWriteArraySet<>();
+
+    public synchronized static void add(String wildcard, HttpMethod httpMethod, Method method) {
+        URITuple uriTuple = new URITuple(JWildcard.wildcardToRegex(wildcard), httpMethod);
+        ruleSet.add(uriTuple);
+        map.put(uriTuple.hashCode(), method);
     }
 
-    public static Method get(String uri, HttpMethod httpMethod) {
-        return map.getOrDefault(new URITuple(uri, httpMethod), null);
+    public synchronized static Method get(String uri, HttpMethod httpMethod) {
+        if(uri == null || httpMethod == null) {
+            return null;
+        }
+        List<URITuple> res = ruleSet.stream()
+                                .filter(tuple -> tuple.getMethod().equals(httpMethod))
+                                .filter(tuple -> uri.matches(tuple.getURI())).toList();
+        if(res.size() == 0) {
+            return null;
+        } else {
+            return map.getOrDefault(res.get(0).hashCode(), null);
+        }
     }
 
 }

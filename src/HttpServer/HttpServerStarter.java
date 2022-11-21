@@ -1,37 +1,37 @@
 package HttpServer;
 
 import HttpServer.annotation.Controller;
+import HttpServer.annotation.EnableStaticResource;
 import HttpServer.annotation.HttpApplication;
 import HttpServer.configuration.MappingScanner;
 import HttpServer.configuration.PackageScanner;
 import HttpServer.mvc.TemplateFactory;
 import HttpServer.network.Server;
 import HttpServer.servlet.ControllerFactory;
+import HttpServer.servlet.StaticResourceHandler;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.logging.Logger;
 
 public class HttpServerStarter {
 
     private static final Logger logger = Logger.getLogger(HttpServerStarter.class.getName());
 
-    public static void main(String[] args) throws Throwable {
-        if(args.length < 1) {
-            System.out.println("Usage: java HttpServerStarter.main ClassName");
-            System.exit(1);
-        }
-        ClassLoader cl = ClassLoader.getSystemClassLoader();
-        Class<?> mc = cl.loadClass(args[0]);
-        mc.getMethod("main", String[].class).invoke(null, args);
+    private static final ClassLoader cl = ClassLoader.getSystemClassLoader();
+
+    public static void main(String[] args) {
+        System.out.println("Usage: On your WebApp's main class, first add @HttpApplication, \n" +
+                "then in your main function, pass main class to HttpServerStater.run() and invoke it.");
     }
 
     public static void run(Class<?> cls, String[] args) {
         if(!cls.isAnnotationPresent(HttpApplication.class)) {
-            logger.warning("Require @HttpApplication on starter class");
+            logger.warning("Require @HttpApplication on main class");
             System.exit(1);
         }
         HttpApplication httpApp = cls.getAnnotation(HttpApplication.class);
@@ -49,16 +49,22 @@ public class HttpServerStarter {
             });
             URL resourceDir;
             if(packageScanner.getPackageName().equals("")) {
-                resourceDir = ClassLoader.getSystemClassLoader()
-                        .getResource(httpApp.resourceDir());
+                resourceDir = cl.getResource(httpApp.resourceDir());
             } else {
-                resourceDir = ClassLoader.getSystemClassLoader()
-                        .getResource(packageScanner.getPackageName().replace(".", File.separator)
+                resourceDir = cl.getResource(
+                        packageScanner.getPackageName().replace(".", File.separator)
                                 + "/" + httpApp.resourceDir());
             }
             assert resourceDir != null && resourceDir.getProtocol().equals("file");
-            TemplateFactory.getInstance()
-                    .setTemplateDir(URLDecoder.decode(resourceDir.getPath(), StandardCharsets.UTF_8));
+            String resourceStr = URLDecoder.decode(resourceDir.getPath(), StandardCharsets.UTF_8);
+            TemplateFactory.getInstance().setTemplateDir(resourceStr);
+            if(cls.isAnnotationPresent(EnableStaticResource.class)) {
+                EnableStaticResource staticResource = cls.getAnnotation(EnableStaticResource.class);
+                StaticResourceHandler.getInstance().setUriBase(staticResource.value());
+                StaticResourceHandler.getInstance().setFsBase(resourceStr);
+                Arrays.stream(staticResource.allow())
+                        .forEach(rule -> StaticResourceHandler.getInstance().addRule(rule));
+            }
         } catch (IOException e) {
             logger.warning(e.getMessage());
             System.exit(1);

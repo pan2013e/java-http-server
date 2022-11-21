@@ -26,7 +26,7 @@ public class ControllerFactory {
         }
     }
 
-    public <T> T getController(Class<T> cls) {
+    public synchronized <T> T getController(Class<T> cls) {
         assert cls != null;
         return cls.cast(instanceMap.get(cls));
     }

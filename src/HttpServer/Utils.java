@@ -4,6 +4,7 @@ import HttpServer.annotation.Query;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -54,6 +55,10 @@ public class Utils {
         return DateTimeFormatter.RFC_1123_DATE_TIME.format(
                 ZonedDateTime.now(ZoneOffset.UTC)
         );
+    }
+
+    public static Path fsConcat(String base, String relative) {
+        return Path.of(base, relative);
     }
 
 }
